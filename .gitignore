@@ -1,2 +1,55 @@
-node_modules
-dist
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+combined.log
+errors.log
+
+# Dependency directories
+node_modules/
+
+# Typescript compiled files
+*.tsbuildinfo
+
+# Environment variables
+.env
+
+# Debug and inspection
+.nyc_output/
+coverage/
+lib-cov/
+*.lcov
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Optional VS Code extensions directory
+.vscode-server/
+
+# Snyk vulnerability scan results
+.snyk
+
+# VS Code files
+.vscode/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Build directories
+dist/
+build/
+tmp/
+temp/
+out/
