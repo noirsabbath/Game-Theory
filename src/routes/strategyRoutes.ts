@@ -9,8 +9,8 @@ router.get('/', (req: Request, res: Response) => {
   res.json(strategies);
 });
 
-router.get('/:name', (req: Request, res: Response) => {
-  const strategy = strategyStorage.getStrategy(req.params.name);
+router.get('/:id', (req: Request, res: Response) => {
+  const strategy = strategyStorage.getStrategy(req.params.id);
   if (strategy) {
     res.json(strategy);
   } else {
@@ -28,11 +28,9 @@ router.post('/', (req: Request, res: Response) => {
     strategyStorage.addStrategy({ name, rules });
     const newStrategy = strategyStorage.getStrategy(name);
     res.status(201).json(newStrategy);
-  } catch (error:any) {
+  } catch (error: any) {
     res.status(400).json({ message: error.message });
   }
 });
-
-// Optional: Add PUT and DELETE routes if needed
 
 export default router;

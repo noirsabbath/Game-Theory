@@ -1,7 +1,10 @@
-import { GameSimulation } from '../models/GameSimulation';
-import { strategyStorage } from '../models/StrategyStorage';
+import { World } from '../models/World';
+import { Tournament } from '../models/Tournament';
 import { Environment } from '../models/Environment';
-import { StrategyResult } from '../models/Strategy';
+import { Strategy, AggregatedStrategyResult, StrategyResult } from '../models/Strategy';
+import { Population } from '../models/Population';
+import { strategyStorage } from '../models/StrategyStorage';
+import { GameSimulation } from '../models/GameSimulation';
 
 export class SimulationController {
   private environments: Environment[];
@@ -10,22 +13,12 @@ export class SimulationController {
     this.environments = environments;
   }
 
-  public runSingleSimulation(environmentId: string, strategyNames: string[], rounds: number): SimulationResult {
-    const environment = this.environments.find(env => env.id === environmentId);
-    if (!environment) {
-      throw new Error('Environment not found');
-    }
-
-    const strategies = strategyNames.map(name => {
-      const strategy = strategyStorage.getStrategy(name);
-      if (!strategy) {
-        throw new Error(`Strategy ${name} not found`);
-      }
-      return strategy;
-    });
+  public runSingleSimulation(environmentId: string, strategyIds: string[], rounds: number): SimulationResult {
+    const environment = this.getEnvironment(environmentId);
+    const strategies = this.getStrategies(strategyIds);
 
     const simulation = new GameSimulation(environment, strategies);
-    const results = simulation.runSimulation(rounds);
+    const results = simulation.runGame(rounds);
 
     return {
       environment: environment.name,
@@ -34,72 +27,59 @@ export class SimulationController {
     };
   }
 
-  public runTournament(environmentId: string, rounds: number): AggregatedStrategyResult[] {
+  public runWorldSimulation(
+    environmentId: string, 
+    worldSize: { width: number, height: number }, 
+    populationSize: number, 
+    years: number, 
+    gamesPerMatch: number, 
+    roundsPerGame: number
+  ): WorldSimulationResult {
+    const environment = this.getEnvironment(environmentId);
+    const population = new Population(populationSize);
+    const world = new World(worldSize, population);
+    const tournament = new Tournament(world, environment);
+
+    const yearlyStats: YearlyStats[] = [];
+
+    for (let year = 0; year < years; year++) {
+      const tournamentResults = tournament.runTournament(gamesPerMatch, roundsPerGame);
+      world.mutate(environment.mutationRate);
+      const worldStats = world.getStats();
+
+      yearlyStats.push({
+        year: year + 1,
+        worldStats,
+        tournamentResults
+      });
+    }
+
+    const finalStats = world.getFinalStats();
+
+    return {
+      environment: environment.name,
+      years,
+      finalStats,
+      yearlyStats
+    };
+  }
+
+  private getEnvironment(environmentId: string): Environment {
     const environment = this.environments.find(env => env.id === environmentId);
     if (!environment) {
       throw new Error('Environment not found');
     }
-  
-    const allStrategies = strategyStorage.getAllStrategies();
-    const results: StrategyResult[] = [];
-  
-    for (let i = 0; i < allStrategies.length; i++) {
-      for (let j = i + 1; j < allStrategies.length; j++) {
-        const simulation = new GameSimulation(environment, [allStrategies[i], allStrategies[j]]);
-        const pairResults = simulation.runSimulation(rounds);
-        results.push(...pairResults);
-      }
-    }
-  
-    // Aggregate results
-    const aggregatedResults = new Map<string, AggregatedStrategyResult>();
-    results.forEach(result => {
-      const existing = aggregatedResults.get(result.name);
-      if (existing) {
-        existing.totalScore += result.score;
-        existing.totalGames += 1;
-        existing.averageCooperationRate = (existing.averageCooperationRate * (existing.totalGames - 1) + result.cooperationRate) / existing.totalGames;
-        existing.averageScore = existing.totalScore / existing.totalGames;
-      } else {
-        aggregatedResults.set(result.name, {
-          name: result.name,
-          totalScore: result.score,
-          averageScore: result.score,
-          totalGames: 1,
-          averageCooperationRate: result.cooperationRate
-        });
-      }
-    });
-  
-    return Array.from(aggregatedResults.values());
+    return environment;
   }
 
-  private aggregateTournamentResults(results: StrategyResult[]): AggregatedStrategyResult[] {
-    const aggregatedResults = new Map<string, AggregatedStrategyResult>();
-
-    results.forEach(result => {
-      const existing = aggregatedResults.get(result.name);
-      if (existing) {
-        existing.totalScore += result.score;
-        existing.totalGames++;
-        existing.averageCooperationRate = (existing.averageCooperationRate * (existing.totalGames - 1) + result.cooperationRate) / existing.totalGames;
-      } else {
-        aggregatedResults.set(result.name, {
-            name: result.name,
-            totalScore: result.score,
-            totalGames: 1,
-            averageCooperationRate: result.cooperationRate,
-            averageScore: 0
-        });
+  private getStrategies(strategyIds: string[]): Strategy[] {
+    return strategyIds.map(id => {
+      const strategy = strategyStorage.getStrategy(id);
+      if (!strategy) {
+        throw new Error(`Strategy ${id} not found`);
       }
+      return strategy;
     });
-
-    return Array.from(aggregatedResults.values())
-      .map(result => ({
-        ...result,
-        averageScore: result.totalScore / result.totalGames
-      }))
-      .sort((a, b) => b.averageScore - a.averageScore);
   }
 }
 
@@ -109,16 +89,21 @@ interface SimulationResult {
   results: StrategyResult[];
 }
 
-interface TournamentResult {
+interface WorldSimulationResult {
   environment: string;
-  rounds: number;
-  results: AggregatedStrategyResult[];
+  years: number;
+  finalStats: {
+    worldType: 'good' | 'bad';
+    goodPercentage: number;
+  };
+  yearlyStats: YearlyStats[];
 }
 
-interface AggregatedStrategyResult {
-  name: string;
-  totalScore: number;
-  totalGames: number;
-  averageScore: number;
-  averageCooperationRate: number;
+interface YearlyStats {
+  year: number;
+  worldStats: {
+    goodCount: number;
+    badCount: number;
+  };
+  tournamentResults: AggregatedStrategyResult[];
 }

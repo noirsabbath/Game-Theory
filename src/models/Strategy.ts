@@ -8,9 +8,9 @@ export interface Condition {
   value?: any;
   count?: number;
   operator?: '<' | '<=' | '>' | '>=' | '==' | '%';
-  interval?: number
-  duration?: number
-  roundNumber?: number
+  interval?: number;
+  duration?: number;
+  roundNumber?: number;
 }
 
 export interface Rule {
@@ -19,6 +19,7 @@ export interface Rule {
 }
 
 export interface Strategy {
+  id: string;
   name: string;
   rules: Rule[];
   isGood: boolean;
@@ -36,5 +37,8 @@ export interface AggregatedStrategyResult {
   totalScore: number;
   averageScore: number;
   totalGames: number;
+  wins: number;
+  losses: number;
+  draws: number;
   averageCooperationRate: number;
 }
